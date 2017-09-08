@@ -1,0 +1,31 @@
+Qnum,Type,Details,Code,Classification,Indicator
+F04,Running Water,water supply network within the house,11,Improved,Improved water
+F04,Running Water,water supply network in the yard/premises,12,Improved,Improved water
+F04,Running Water,public taps and standpipes,13,Improved,Improved water
+F05,Wells and boreholes,Wells and boreholes,21,Improved,Improved water
+F04,Dug Wells,protected wells,31,Improved,Improved water
+F04,Dug Wells,non protected wells,32,Unimproved,Improved water
+F04,Spring Water,protected spring,41,Improved,Improved water
+F04,Spring Water,unprotected spring,42,Unimproved,Improved water
+F04,Rain Water,rain water,51,Improved,Improved water
+F04,Tankers,tankers,61,Unimproved,Improved water
+F05,Trucks,trucks equipped with small barrels,71,Unimproved,Improved water
+F06,Surface,surface water river / dam / lake / ponds / spring / channel / (irrigation channel),81,Unimproved,Improved water
+F07,Bottled,bottled water,91,Unimproved,Improved water
+F07,Others,(specify),96,,Improved water
+F11,Flush Toilet/Manual Flushing Connected,to a sewer system,11,Improved,Improved sanitation
+F11,Flush Toilet/Manual Flushing Connected,to a septic tank,12,Improved,Improved sanitation
+F11,Flush Toilet/Manual Flushing Connected,to a cesspit,13,Improved,Improved sanitation
+F11,Flush Toilet/Manual Flushing Connected,to something else,14,Improved,Improved sanitation
+F11,Flush Toilet/Manual Flushing Connected,don't know where,15,Improved,Improved sanitation
+F11,Cesspit,Improved cesspits self-ventilated,21,Improved,Improved sanitation
+F11,Cesspit,cesspits with slab,22,Improved,Improved sanitation
+F11,Cesspit,cesspits without slabs / open hole,23,Unimproved,Improved sanitation
+F11,Compost,compost toilets,31,Improved,Improved sanitation
+F11,Pail,pail / latrine bucket,41,Unimproved,Improved sanitation
+F11,Suspended toilet,supended toilets / latrines,51,Unimproved,Improved sanitation
+F11,No toilet,no toilets / nature,61,Unimproved,Improved sanitation
+F11,Others,other,96,,Improved sanitation
+F12,Do you share your toilet with other households?,Yes,1,Unimproved,Improved sanitation
+F12,Do you share your toilet with other households?,No,2,,Improved sanitation
+,,,,,
