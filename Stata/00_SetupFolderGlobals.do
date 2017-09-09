@@ -139,6 +139,9 @@ foreach dir in `folders' {
 }
 *end
 
+local dir `c(pwd)'
+global wave1  "`dir'\LSMSwave1\"
+global wave2  "`dir'\LSMSwave2\"
 
 /*------------------------------------------------------------
 # Manually copy raw data  into Datain Folder #
