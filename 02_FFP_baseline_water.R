@@ -23,6 +23,7 @@
 # F17's: when need to wash hands
 
 # -- Other important vars --
+# HH: hh id
 # PVO: IP
 # strata: strata
 # cluster: cluster
@@ -101,16 +102,68 @@ library(svywrangler)
 # https://www.usaid.gov/data/dataset/08ee315f-c339-4c2f-8ae8-8988c9ef05ff
 base = read_csv(paste0(data_dir, 'Niger_Sanitation and Maternal Health_Data.csv'))
 
+# pull out the coded values for the variables
+base_labels = read_csv(paste0(data_dir, 'Niger_Sanitation and Maternal Health_Codebook_Values.csv'),
+                       skip = 1) %>% 
+  fill(`Value`) %>% 
+  rename(variable = Value, value = X2, label = Label)
 
 
-base %>% group_by(REG) %>% summarise(mean(improved_source, na.rm = T))
 
-base %>% count(is.na(improved_source))
+# Data cleanup ------------------------------------------------------------
+wash = base %>% 
+  select(hhid = HH, ip = PVO, strata, cluster, weight = HHWT,
+         village = VN, admin3 = A04a, admin2 = A04b,
+         admin1 = REG, gendered_hh, 
+         improved_source, improved_sanitation, soap_water,
+         contains('critical_handwashing'),
+         F04, F05, F06, F07, F08, F09, contains('F10'),
+         F11, F12, F13, F14, F15, F16, contains('F17')) %>% 
+  mutate(
+    # create binaries for whether toilet/water source is improved
+    impr_watersrc = ifelse(F04 %in% impr_water_codes, 1, 0),
+    impr_toiletsrc = ifelse(F11 %in% impr_toilet_codes, 1, 0),
+    
+    # binary for whether water is within 30 min.
+    # Either time (F06) is <= 30, or location is within dwelling or yard (F05 == 1 | 2)
+    water_wi30min = ifelse(F06 == 998, NA, ifelse(F06 <= 30 | F05 < 3, 1, 0)),
+    water_elsewhere = ifelse(F05 == 3, 1, 0),
+    
+    # binary for if water is treated
+    water_treated = ifelse(F09 == 8, NA, ifelse(F09 == 1, 1, 0)),
+    
+    # binary for whether toilet is shared
+    shared_toilet = ifelse(F12 == 1, 1, 
+                           ifelse(F12 == 2, 0, NA))
+  )
 
-base %>% count(F04) %>%  mutate(pct = n/sum(n)) %>% arrange(desc(pct))
 
-base %>% count(F06 > 30)
+# Improved water/toilet calculations ---------------------------------------------
+wash = wash %>% 
+  mutate(impr_water_lh = ifelse(impr_watersrc == 1 & water_wi30min == 1, 1,
+                                0),
+         check_water = impr_watersrc == improved_source,
+         
+         impr_toilet_lh = ifelse(impr_toiletsrc == 1 & shared_toilet == 0, 1, 0),
+         check_toilet = impr_toilet_lh == improved_sanitation,
+         
+         water1 = ifelse(impr_watersrc == 1, 1, 0),
+         water2 = ifelse(impr_watersrc == 1 & water_wi30min == 1, 1, 0),
+         water3 = ifelse(impr_watersrc == 1 & water_elsewhere == 0, 1, 0),
+         water4 = ifelse(impr_watersrc == 1 & water_elsewhere == 1 & water_treated == 1, 1, 0),
+         water5 = ifelse(impr_watersrc == 1 & F07 == 1 & F08 == 2, 1, 0)
+         )
 
-qplot(data = base, x = F06)
 
-  
+# Calculate improved toilets ----------------------------------------------
+# Double checking numbers
+# According to the ICF Endline report, the numbers should be: Save the Children 0.105; CRS = 0.055; Mercy Corps = 0.132
+# Numbers check out (11 September 2017)
+svywrangler::calcPtEst(wash, 'improved_sanitation', by_var = 'ip', use_weights = TRUE, 
+                       psu_var = 'cluster', strata_var = 'strata', weight_var = 'weight')
+
+svywrangler::calcPtEst(wash, 'impr_toilet_lh', by_var = 'ip', use_weights = TRUE, 
+                       psu_var = 'cluster', strata_var = 'strata', weight_var = 'weight')
+
+svywrangler::calcPtEst(wash, 'impr_toilet_lh', by_var = 'admin2', use_weights = TRUE, 
+                       psu_var = 'cluster', strata_var = 'strata', weight_var = 'weight')
