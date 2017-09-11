@@ -49,7 +49,7 @@ san = loadDHS(indicators = indic, countries = 'Niger', breakdown = 'subnational'
 san = san %>% filter(CharacteristicLabel %in% c('Maradi', '..Zinder')) %>% 
   mutate(region = str_replace_all(CharacteristicLabel, '\\.', ''))
 
-natl = loadDHS(indicators = indic, countries = 'Niger', breakdown = 'national') %>% 
+natl = loadDHS(indicators = indic, countries = 'Niger', breakdown = 'background') %>% 
   select(SurveyYear, Indicator, total = Percent)
 
 san = left_join(san, natl, by = c('SurveyYear', 'Indicator')) %>% 
