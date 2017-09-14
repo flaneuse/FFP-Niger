@@ -17,7 +17,7 @@ F11,Flush Toilet/Manual Flushing Connected,to a sewer system,11,Improved,Improve
 F11,Flush Toilet/Manual Flushing Connected,to a septic tank,12,Improved,Improved sanitation
 F11,Flush Toilet/Manual Flushing Connected,to a cesspit,13,Improved,Improved sanitation
 F11,Flush Toilet/Manual Flushing Connected,to something else,14,Unimproved,Improved sanitation
-F11,Flush Toilet/Manual Flushing Connected,don't know where,15,Unimproved,Improved sanitation
+F11,Flush Toilet/Manual Flushing Connected,don't know where,15,Improved,Improved sanitation
 F11,Cesspit,Improved cesspits self-ventilated,21,Improved,Improved sanitation
 F11,Cesspit,cesspits with slab,22,Improved,Improved sanitation
 F11,Cesspit,cesspits without slabs / open hole,23,Unimproved,Improved sanitation
