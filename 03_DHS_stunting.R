@@ -9,15 +9,18 @@ library(tidyverse)
 library(svywrangler)
 
 kids = read_stata('~/Documents/Niger/data/NER_2012_DHS/nikr61dt/NIKR61FL.DTA')
-kids %>% filter(!is.na(hw70)) %>% count(v024)
-attr(kids$v024, 'labels')
 
 
 # In general, ignoring potentially relevant vars if exclude ~ 2000+ obs. --> all under 2 obs.
 
 kids = kids %>% 
-  filter(!is.na(hw70)) %>% 
-  mutate(rural = ifelse(v025 == 2, 1, 0)) %>% 
+  # ignore children lacking stunting data
+  filter(!is.na(hw70), hw70 < 9990) %>% 
+  
+  mutate(rural = ifelse(v025 == 2, 1, 0),
+         stunting = hw70 / 1e2
+         ) %>% 
+  
   # grab 119-129, 153, 161: hh assets
   select(cluster_num = v001, hh_num = v002, 
          interview_month = v006,
@@ -105,4 +108,4 @@ kids = kids %>%
          washknow_foodprep = s563a, washknow_food = s563b, washknow_feed = s563c, washknow_aftereat = s563d, washknow_toilets = s563e, washknow_diaper = s563f,
          handwashing = s564,
          mom_noncommunicable = s1210aa
-         )
+  )
