@@ -1,22 +1,21 @@
 
-# Import and clean Niger DHS data -----------------------------------------
-
+# Import and clean Niger children's DHS data -----------------------------------------
+# Laura Hughes, lhughes@usaid.gov, USAID | GeoCenter
 
 # setup -------------------------------------------------------------------
 
 library(haven)
 library(tidyverse)
 library(svywrangler)
+library(modelr)
 
-kids = read_stata('~/Documents/Niger/data/NER_2012_DHS/nikr61dt/NIKR61FL.DTA')
+kids_raw = read_stata('~/Documents/USAID/Niger/NER_2012_DHS/nikr61dt/NIKR61FL.DTA')
 
 
 # In general, ignoring potentially relevant vars if exclude ~ 2000+ obs. --> all under 2 obs.
 
-kids = kids %>% 
-  # ignore children lacking stunting data
-  filter(!is.na(hw70), hw70 < 9990) %>% 
-  
+kids = kids_raw %>% 
+
   mutate(rural = ifelse(v025 == 2, 1, 0),
          stunting = hw70 / 1e2
          ) %>% 
@@ -24,7 +23,6 @@ kids = kids %>%
   # grab 119-129, 153, 161: hh assets
   select(cluster_num = v001, hh_num = v002, 
          interview_month = v006,
-         birth_month = v009, birth_year = v010, 
          age_mom = v447a, # check not v012 age_mom_cat = v013,
          psu = v021, strata = v022, region = v024,
          rural,
@@ -93,7 +91,7 @@ kids = kids %>%
          # vac
          vac_tb = h2, vac_dpt1 = h3, vac_polio1 = h4, vac_dpt2 = h5, vac_polio2 = h6, vac_dpt3 = h7, 
          polio3 = h8, measles = h9, vac_polio0 = h0, vac_yellowfever = s506y,
-         diarrhea = h11, fever = 22, cough = h31, vitA = h33, vitA = h34, Fe = h42, int_parasites = h43,
+         diarrhea = h11, fever = 22, cough = h31, vitA = h33, vitA2 = h34, Fe = h42, int_parasites = h43,
          
          age_months = hw1, weight = hw2, height = hw3, stunting = hw70, underweight = hw71, wasting = hw72, bmi = hw73, kid_hemoglobin = hw56, kid_anemia = hw57,
          mosqnet_type = ml0,
@@ -109,3 +107,36 @@ kids = kids %>%
          handwashing = s564,
          mom_noncommunicable = s1210aa
   )
+
+
+# center and scale data ---------------------------------------------------
+
+
+# filter out relevant kids ------------------------------------------------
+# children universe: (1) all rural Niger; (2) all rural Zinder
+
+all_kids = kids  %>% 
+  # ignore children lacking stunting data and from urban areas
+  filter(!is.na(stunting), stunting < 99,
+         rural == 1)
+
+zinder = kids %>% filter(region == 'Zinder')
+
+# create basic models -----------------------------------------------------
+
+models = formulas(~stunting,
+                  basic = 
+                    # basic demographics
+                    ~ sex + age_months*age_months +
+                    # hh demographics
+                     region + hh_size,
+                  new = add_predictors(basic, ~vac_tb))
+
+# Stunting z-score
+all_z = all_kids %>% fit_with(lm, models)
+zinder_z = zinder %>% fit_with(lm, models)
+
+# Binary stunted
+all_stunted = all_kids %>% fit_with(glm, models_stunted, family = binomial)
+zinder_stunted = zinder %>% fit_with(glm, models_stunted, family = binomial)
+
