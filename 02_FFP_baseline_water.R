@@ -95,7 +95,7 @@ impr_toilet_codes = c(11,12,13,15,21,22,31)
 
 
 # Import data, pkgs -------------------------------------------------------
-data_dir = '~/Documents/Niger/data/'
+data_dir = '~/Documents/USAID/Niger/data/'
 
 library(tidyverse)
 library(llamar)
@@ -249,6 +249,16 @@ plot_avg(wash, 'impr_toilet_lh', 'wlth_quint_label', 'Improved toilet access by 
 plot_avg(wash, 'impr_toilet_lh', 'admin1', 'Improved toilet access by region', 'FFP Baseline data', palette = YlOrBr, pal_limits = c(0, 0.25))
 plot_avg(wash, 'impr_toilet_lh', 'admin2', 'Improved toilet access by region', 'FFP Baseline data', palette = YlOrBr, pal_limits = c(0, 0.25))
 
+wash = wash %>% 
+  mutate(OD = ifelse(toilet_src == 'No Facility/Bush/Field', 1, 0))
+
+svywrangler::calcPtEst(wash, 'OD', by_var = 'admin1', use_weights = TRUE, 
+                       psu_var = 'cluster', strata_var = 'strata', weight_var = 'weight')
+
+
+svywrangler::calcPtEst(wash, 'impr_water_lh', by_var = 'admin1', use_weights = TRUE, 
+                       psu_var = 'cluster', strata_var = 'strata', weight_var = 'weight')
+
 
 # dot matrix of toilets ---------------------------------------------------
 
@@ -307,6 +317,8 @@ plot_avg(wash, 'impr_water_lh', 'wlth_quint_label', 'Improved water access by by
 plot_avg(wash, 'impr_water_lh', 'admin1', 'Improved water access by region', 'FFP Baseline data')
 plot_avg(wash, 'impr_water_lh', 'admin2', 'Improved water access by region', 'FFP Baseline data')
 
+svywrangler::calcPtEst(wash, 'impr_water_lh', by_var = 'admin1', use_weights = TRUE, 
+                       psu_var = 'cluster', strata_var = 'strata', weight_var = 'weight')
 
 
 
