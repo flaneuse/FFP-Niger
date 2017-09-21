@@ -17,7 +17,7 @@ library(tidyverse)
 library(svywrangler)
 library(forcats)
 
-data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
+data_dir = '~/Documents/Niger/data/NER_2012_DHS/'
 
 
 # read in individual level DHS data ---------------------------------------
@@ -50,7 +50,7 @@ hh_raw = read_dta(paste0(data_dir, 'nihr61dt/NIHR61FL.DTA'))
 
 hh = hh_raw %>% 
   # only rural houses
-  filter(hv025 == 2) %>% 
+  # filter(hv025 == 2) %>% 
   mutate(
     # calculate number sleeping as number of de jure members, unless de jure = 0.  Then go w/ defacto.
     num_sleep = ifelse(hv012 == 0, hv013, hv012),
@@ -95,7 +95,8 @@ hh = hh_raw %>%
     # banking 
     bank_acct = hv247,
     
-    WI_DHS_rural = hv271r) 
+    WI_DHS_rural = hv271r,
+    WI_DHS = hv271) 
 
 # Check got all the decimal-ed data:
 type_of(hh) %>% filter(type == 'numeric')
@@ -170,23 +171,46 @@ hh = hh %>%
 
 
 # Factorize factors -------------------------------------------------------
-
+hh = hh %>% 
+  factorize('_lab', toilet_src, drinking_src, wall_type, roof_type, floor_type, cooking_fuel)
 
 # Lump factors ------------------------------------------------------------
 lump_thresh = 0.05
 
 hh = hh %>% 
-  mutate(wall_type = fct_lump(as.factor(wall_type), prop = lump_thresh),
-         roof_type = fct_lump(as.factor(roof_type), prop = lump_thresh),
-         floor_type = fct_lump(as.factor(floor_type), prop = lump_thresh),
-         cooking_fuel = fct_lump(as.factor(cooking_fuel), prop = lump_thresh))
+  mutate(wall_type_clumped = fct_lump(wall_type_lab, prop = lump_thresh),
+         roof_type_clumped = fct_lump(roof_type_lab, prop = lump_thresh),
+         floor_type_clumped = fct_lump(floor_type_lab, prop = lump_thresh),
+         cooking_fuel_clumped = fct_lump(cooking_fuel_lab, prop = lump_thresh),
+         
+         # DHS PCA groupings: don't group together classes
+         toilet_src_dhs = toilet_src_lab,
+         drinking_src_dhs = drinking_src_lab,
+         cooking_fuel_dhs = cooking_fuel_lab,
+         floor_type_dhs = floor_type_lab,
+         
+         # combine thatch/palm/leaves with sod
+         roof_type_dhs = fct_collapse(roof_type_lab,
+                                      `Thatch/Palm/Leaves/Sod` = c('Thatch/Palm/Leaves', 'Sod')),
+         
+         # combine Bamboo/Cane/Palm/Trunks with Dirt, Straw
+         wall_type_dhs = fct_collapse(wall_type_lab,
+                                      Cane_Dirt_Straw = c('Bamboo/Cane/Palm/Trunks', 'Dirt', 'Straw')),
+         
+         # DHS combines shared toilet + toilet_src BUT without "no facility", since all shared.
+         shared_toilet_dhs = ifelse(toilet_src_lab == 'No facility/bush/field', NA, 
+                                    ifelse(shared_toilet == 1, 
+                                           paste0(toilet_src_dhs, ' shared'), NA))
+  )
 
 # Create dummy variables for categoricals ---------------------------------
 hh = hh %>% 
   dummize(remove_factors = FALSE, 
-          floor_type, wall_type, roof_type,
-          drinking_src, toilet_src,
-          cooking_fuel, 
+          floor_type_clumped, wall_type_clumped, roof_type_clumped,
+          floor_type_dhs, wall_type_dhs, roof_type_dhs,
+          drinking_src_dhs, toilet_src_dhs, shared_toilet_dhs,
+          cooking_fuel_dhs,
+          cooking_fuel_clumped,
           cow_cat, camel_cat, equine_cat, goat_cat, 
           sheep_cat, chicken_cat, duck_cat)
 
@@ -221,7 +245,40 @@ count_NA(hh_pca)
 # 3) Create a combined PCA sans WASH, with animals as TLUs
 # 4) Create 3 separate PCAs: infrastructure, ag assets, durable goods
 
+pca1_vars = hh_pca %>% 
+  select(  # infrastructure + WASH:
+    owns_house, ppl_room, elec, 
+    contains('_dhs'), -WI_DHS_rural, -toilet_src_dhs,
+    -drinking_src_dhs, -cooking_fuel_dhs, -floor_type_dhs,
+    -roof_type_dhs, -wall_type_dhs, -shared_toilet_dhs,
+    
+    # ag assets:
+    owns_land, land_size,
+    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+    contains('cat'), -cow_cat, -camel_cat, -chicken_cat, -equine_cat, -goat_cat, -duck_cat,-sheep_cat,
+    
+    # durable assets:
+    radio, tv, refrigerator, 
+    bicycle, motorcycle, car,
+    canoe, cyclomotor,
+    telephone, mobile, vcr, computer,
+    ac, antenna,
+    oven, 
+    watch, 
+    animal_cart, plow,motor_pump,
+    # banking 
+    bank_acct)
+  
+  pca1 = pca1_vars %>% 
+  calc_idx(save_params = T, var_name = 'WI_DHS_calc', center = T, scale = T)
 
+  
+  bind_cols(hh, pca1$data) %>% 
+    ggplot(., aes(x = WI_DHS/1e5, y = WI_DHS_calc)) +
+    geom_point() +
+    theme_xygrid() +
+    coord_equal()
+  
 pca2 = hh_pca %>% 
   select(  # infrastructure:
     owns_house, ppl_room, elec, 
@@ -254,6 +311,7 @@ pca2 = hh_pca %>%
     # banking 
     bank_acct) %>% 
   calc_idx(save_params = T)
+
 
 
 pca3 = hh_pca %>% 
@@ -315,8 +373,29 @@ pca4 = hh_pca %>%
     contains('cooking_fuel'), -cooking_fuel,
     watch, 
     animal_cart, plow,motor_pump,
-   owns_bednet) %>% 
+    owns_bednet) %>% 
   calc_idx(save_params = T)
 
+
+durables = hh_pca %>% 
+  select(    # durable assets:
+    radio, tv, 
+    bicycle, motorcycle, 
+    mobile, vcr,
+    contains('cooking_fuel'), -cooking_fuel,
+    watch, 
+    animal_cart, plow,motor_pump,
+    owns_bednet) %>% ?
+calc_idx(save_params = T)
+
+
+infra = hh_pca %>% 
+  select(  # infrastructure:
+    owns_house, ppl_room, elec, 
+    # where_cook = hv241,
+    contains('floor_type'), -floor_type, 
+    contains('wall_type'), -wall_type, 
+    contains('roof_type'), -roof_type) %>% 
+  calc_idx(save_params = T)
 
 calc_pct(pca4) 
