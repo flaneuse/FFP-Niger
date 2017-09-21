@@ -50,7 +50,7 @@ hh_raw = read_dta(paste0(data_dir, 'nihr61dt/NIHR61FL.DTA'))
 
 hh = hh_raw %>% 
   # only rural houses
-  # filter(hv025 == 2) %>% 
+  filter(hv025 == 2) %>%
   mutate(
     # calculate number sleeping as number of de jure members, unless de jure = 0.  Then go w/ defacto.
     num_sleep = ifelse(hv012 == 0, hv013, hv012),
@@ -164,24 +164,23 @@ hh = hh %>%
   mutate_at(funs(cut(., breaks = c(-1, 0, 9, 29, 100),
                      labels = c('0', '1-9', '10-29', '30+'))), 
             .vars = vars(chicken_cat, duck_cat)) %>% 
-  # mutate(where_cook_cat = fct_collapse(where_cook,
-  #                                      indoors = c("In the house", "In a separate building"),
-  #                                      outdoors = "Outdoors")) %>% 
   calc_tlu()
 
 
 # Factorize factors -------------------------------------------------------
 hh = hh %>% 
-  factorize('_lab', toilet_src, drinking_src, wall_type, roof_type, floor_type, cooking_fuel)
+  factorize('_lab', toilet_src, drinking_src, wall_type, roof_type, floor_type, cooking_fuel, where_cook)
 
 # Lump factors ------------------------------------------------------------
 lump_thresh = 0.05
 
 hh = hh %>% 
-  mutate(wall_type_clumped = fct_lump(wall_type_lab, prop = lump_thresh),
+  # Clumped together based on frequency, with oversight to make sure the categories roughly make sense
+  mutate(wall_type_clumped = fct_lump(wall_type_lab, n = 3),
          roof_type_clumped = fct_lump(roof_type_lab, prop = lump_thresh),
          floor_type_clumped = fct_lump(floor_type_lab, prop = lump_thresh),
          cooking_fuel_clumped = fct_lump(cooking_fuel_lab, prop = lump_thresh),
+         where_cook_clumped = fct_lump(where_cook_lab, n = 1),
          
          # DHS PCA groupings: don't group together classes
          toilet_src_dhs = toilet_src_lab,
@@ -207,10 +206,10 @@ hh = hh %>%
 hh = hh %>% 
   dummize(remove_factors = FALSE, 
           floor_type_clumped, wall_type_clumped, roof_type_clumped,
+          where_cook_clumped, cooking_fuel_clumped,
           floor_type_dhs, wall_type_dhs, roof_type_dhs,
           drinking_src_dhs, toilet_src_dhs, shared_toilet_dhs,
           cooking_fuel_dhs,
-          cooking_fuel_clumped,
           cow_cat, camel_cat, equine_cat, goat_cat, 
           sheep_cat, chicken_cat, duck_cat)
 
@@ -248,7 +247,7 @@ count_NA(hh_pca)
 pca1_vars = hh_pca %>% 
   select(  # infrastructure + WASH:
     owns_house, ppl_room, elec, 
-    contains('_dhs'), -WI_DHS_rural, -toilet_src_dhs,
+    contains('_dhs'), -WI_DHS_rural, -WI_DHS, -toilet_src_dhs,
     -drinking_src_dhs, -cooking_fuel_dhs, -floor_type_dhs,
     -roof_type_dhs, -wall_type_dhs, -shared_toilet_dhs,
     
@@ -274,10 +273,16 @@ pca1_vars = hh_pca %>%
 
   
   bind_cols(hh, pca1$data) %>% 
-    ggplot(., aes(x = WI_DHS/1e5, y = WI_DHS_calc)) +
+    ggplot(., aes(x = WI_DHS_rural, y = WI_DHS_calc)) +
     geom_point() +
     theme_xygrid() +
     coord_equal()
+  
+  x = data.frame(pca_new$scores[,1])
+  ggplot(x, aes(x = `pca_new.scores...1.`)) + 
+    geom_histogram(fill = 'dodgerblue', binwidth = 0.25) + 
+    geom_histogram(aes(x = WI_DHS_rural), fill = 'coral', data = hh, alpha = 0.5, binwidth = 0.25) + 
+    theme_xgrid()
   
 pca2 = hh_pca %>% 
   select(  # infrastructure:
@@ -348,18 +353,18 @@ pca3 = hh_pca %>%
   calc_idx(save_params = T)
 
 
-pca4 = hh_pca %>% 
-  select(  # infrastructure:
-    owns_house, ppl_room, elec, 
-    # where_cook = hv241,
-    contains('floor_type'), -floor_type, 
-    contains('wall_type'), -wall_type, 
-    contains('roof_type'), -roof_type, 
+# Export for TE to run in Stata -------------------------------------------
+
+
+pca4 = hh %>% 
+  select( 
+    hh_num, cluster, 
+    # infrastructure:
+    # owns_house, # ignoring b/c 3,770 NAs
+    ppl_room, elec, 
+    contains('clumped'), -wall_type_clumped, -roof_type_clumped, floor_type_clumped, 
+    -cooking_fuel_clumped, -where_cook_clumped,
     
-    
-    # # WASH:
-    # drinking_src = hv201, time2water = hv204, 
-    # toilet_src = hv205, shared_toilet = hv225,
     
     # ag assets:
     owns_land, land_size,
@@ -370,32 +375,12 @@ pca4 = hh_pca %>%
     radio, tv, 
     bicycle, motorcycle, 
     mobile, vcr,
-    contains('cooking_fuel'), -cooking_fuel,
     watch, 
     animal_cart, plow,motor_pump,
-    owns_bednet) %>% 
-  calc_idx(save_params = T)
+    owns_bednet) 
 
+count_NA(pca4)
 
-durables = hh_pca %>% 
-  select(    # durable assets:
-    radio, tv, 
-    bicycle, motorcycle, 
-    mobile, vcr,
-    contains('cooking_fuel'), -cooking_fuel,
-    watch, 
-    animal_cart, plow,motor_pump,
-    owns_bednet) %>% ?
-calc_idx(save_params = T)
+calc_pct(pca4) %>% filter(pct< 0.01)
 
-
-infra = hh_pca %>% 
-  select(  # infrastructure:
-    owns_house, ppl_room, elec, 
-    # where_cook = hv241,
-    contains('floor_type'), -floor_type, 
-    contains('wall_type'), -wall_type, 
-    contains('roof_type'), -roof_type) %>% 
-  calc_idx(save_params = T)
-
-calc_pct(pca4) 
+write.csv(pca4, '~/Documents/Niger/data/NER_DHS_2012_PCA_LDH.csv')
