@@ -315,8 +315,8 @@ pca4 = hh_pca %>%
     contains('cooking_fuel'), -cooking_fuel,
     watch, 
     animal_cart, plow,motor_pump,
-    num_bednets, owns_bednet) %>% 
+   owns_bednet) %>% 
   calc_idx(save_params = T)
 
 
-calc_pct(pca3) %>% filter(pct < 0.01)
+calc_pct(pca4) 
