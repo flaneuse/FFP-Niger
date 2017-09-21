@@ -49,6 +49,7 @@ hh_raw = read_dta(paste0(data_dir, 'nihr61dt/NIHR61FL.DTA'))
 
 
 hh = hh_raw %>% 
+  # only rural houses
   filter(hv025 == 2) %>% 
   mutate(
     # calculate number sleeping as number of de jure members, unless de jure = 0.  Then go w/ defacto.
@@ -254,4 +255,68 @@ pca2 = hh_pca %>%
     bank_acct) %>% 
   calc_idx(save_params = T)
 
-calc_pct(hh) %>% filter(pct < 0.01)
+
+pca3 = hh_pca %>% 
+  select(  # infrastructure:
+    owns_house, ppl_room, elec, 
+    # where_cook = hv241,
+    contains('floor_type'), -floor_type, 
+    contains('wall_type'), -wall_type, 
+    contains('roof_type'), -roof_type, 
+    
+    
+    # # WASH:
+    # drinking_src = hv201, time2water = hv204, 
+    # toilet_src = hv205, shared_toilet = hv225,
+    
+    # ag assets:
+    owns_land, land_size,
+    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+    TLU,
+    
+    # durable assets:
+    radio, tv, refrigerator, 
+    bicycle, motorcycle, car,
+    canoe, cyclomotor,
+    telephone, mobile, vcr, computer,
+    ac, antenna,
+    oven, contains('cooking_fuel'), -cooking_fuel,
+    watch, 
+    animal_cart, plow,motor_pump,
+    # num_bednets, owns_bednet
+    # 
+    # banking 
+    bank_acct) %>% 
+  calc_idx(save_params = T)
+
+
+pca4 = hh_pca %>% 
+  select(  # infrastructure:
+    owns_house, ppl_room, elec, 
+    # where_cook = hv241,
+    contains('floor_type'), -floor_type, 
+    contains('wall_type'), -wall_type, 
+    contains('roof_type'), -roof_type, 
+    
+    
+    # # WASH:
+    # drinking_src = hv201, time2water = hv204, 
+    # toilet_src = hv205, shared_toilet = hv225,
+    
+    # ag assets:
+    owns_land, land_size,
+    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+    TLU,
+    
+    # durable assets:
+    radio, tv, 
+    bicycle, motorcycle, 
+    mobile, vcr,
+    contains('cooking_fuel'), -cooking_fuel,
+    watch, 
+    animal_cart, plow,motor_pump,
+    num_bednets, owns_bednet) %>% 
+  calc_idx(save_params = T)
+
+
+calc_pct(pca3) %>% filter(pct < 0.01)
