@@ -55,9 +55,7 @@ hh = hh_raw %>%
     num_sleep = ifelse(hv012 == 0, hv013, hv012),
     
     # convert to proper decimals
-    land_size = hv245/10,
-    hh_wt = hv005 / 1e6,
-    WI_DHS_rural = hv271r / 1e5 
+    hh_wt = hv005 / 1e6
   ) %>% 
   select(
     # hh sampling attributes
@@ -77,7 +75,7 @@ hh = hh_raw %>%
     toilet_src = hv205, shared_toilet = hv225,
     
     # ag assets:
-    owns_land = hv244, land_size,
+    owns_land = hv244, land_size = hv245,
     # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
     cows = hv246b, equines = hv246c, goats = hv246d,
     sheep = hv246e, chickens = hv246f, camels = hv246g, ducks = hv246h,
@@ -96,7 +94,7 @@ hh = hh_raw %>%
     # banking 
     bank_acct = hv247,
     
-    WI_DHS_rural) 
+    WI_DHS_rural = hv271r) 
 
 # Check got all the decimal-ed data:
 type_of(hh) %>% filter(type == 'numeric')
@@ -117,7 +115,7 @@ hh = hh %>%
   replace_missing(missing_codes = 9, bank_acct, owns_land, elec,
                   shared_toilet, radio, tv, refrigerator, bicycle, 
                   car, motorcycle, telephone, owns_land,
-                  mobile, watch, animal_cart, where_cook, separate_kitchen,
+                  mobile, watch, animal_cart, where_cook,
                   # note: these are Niger-specific variables and are not listed as being NA in survey.
                   # However, seems only logical choice, since they are binaries.
                   vcr, canoe, cyclomotor, computer, ac, antenna, motor_pump, oven, plow
@@ -129,7 +127,8 @@ hh = hh %>%
                   roof_type, floor_type, wall_type, num_bednets) %>% 
   replace_missing(missing_codes = c(998, 999), land_size, time2water) %>% 
   # Calculate ratio of people to rooms
-  mutate(ppl_room = ifelse(num_rooms > 0, trunc(num_sleep / num_rooms), num_sleep))
+  mutate(ppl_room = ifelse(num_rooms > 0, trunc(num_sleep / num_rooms), num_sleep),
+         water_within30 = time2water <= 30)
 
 hh %>% count_value(8)
 hh %>% count_value(9)
@@ -140,10 +139,13 @@ hh %>% count_value(999)
 
 
 
-# classify animals --------------------------------------------------------
+# classify animals, convert to decimals --------------------------------------------------------
 
 # Breaks according to DHS: http://www.dhsprogram.com/programming/wealth%20index/Niger%20DHS%202012/niger%202012%20sps.pdf
 hh = hh %>% 
+  # convert to decimals
+  mutate(land_size = land_size/10,
+         WI_DHS_rural = WI_DHS_rural / 1e5 ) %>% 
   # create a copy
   mutate(cow_cat = cows, 
          equine_cat = equines,  
@@ -159,17 +161,34 @@ hh = hh %>%
   # small animals
   mutate_at(funs(cut(., breaks = c(-1, 0, 9, 29, 100),
                      labels = c('0', '1-9', '10-29', '30+'))), 
-  .vars = vars(chicken_cat, duck_cat)) %>% 
-  mutate(where_cook_cat = fct_collapse(where_cook,
-                                       indoors = c("In the house", "In a separate building"),
-                                       outdoors = "Outdoors")) %>% 
+            .vars = vars(chicken_cat, duck_cat)) %>% 
+  # mutate(where_cook_cat = fct_collapse(where_cook,
+  #                                      indoors = c("In the house", "In a separate building"),
+  #                                      outdoors = "Outdoors")) %>% 
   calc_tlu()
 
 
 # Factorize factors -------------------------------------------------------
 
 
+# Lump factors ------------------------------------------------------------
+lump_thresh = 0.05
+
+hh = hh %>% 
+  mutate(wall_type = fct_lump(as.factor(wall_type), prop = lump_thresh),
+         roof_type = fct_lump(as.factor(roof_type), prop = lump_thresh),
+         floor_type = fct_lump(as.factor(floor_type), prop = lump_thresh),
+         cooking_fuel = fct_lump(as.factor(cooking_fuel), prop = lump_thresh))
+
 # Create dummy variables for categoricals ---------------------------------
+hh = hh %>% 
+  dummize(remove_factors = FALSE, 
+          floor_type, wall_type, roof_type,
+          drinking_src, toilet_src,
+          cooking_fuel, 
+          cow_cat, camel_cat, equine_cat, goat_cat, 
+          sheep_cat, chicken_cat, duck_cat)
+
 
 # fix things that should be 0 ---------------------------------------------
 hh = hh %>% 
@@ -187,9 +206,12 @@ count_NA(hh)
 # 6        land_size  980
 # 7       where_cook  158
 
-hh_pca = hh %>% mutate_all(funs(coalesce(., 0)))
+hh_pca = hh %>% mutate_if(funs(coalesce(., 0)), .predicate = is.numeric)
 
 count_NA(hh_pca)
+
+
+
 
 # Run PCAs -----------------------------------------------------------------
 # 1) Recreate DHS PCA to double check
@@ -197,4 +219,39 @@ count_NA(hh_pca)
 # 3) removing anything < 1%
 # 3) Create a combined PCA sans WASH, with animals as TLUs
 # 4) Create 3 separate PCAs: infrastructure, ag assets, durable goods
+
+
+pca2 = hh_pca %>% 
+  select(  # infrastructure:
+    owns_house, ppl_room, elec, 
+    # where_cook = hv241,
+    contains('floor_type'), -floor_type, 
+    contains('wall_type'), -wall_type, 
+    contains('roof_type'), -roof_type, 
+    
+    
+    # # WASH:
+    # drinking_src = hv201, time2water = hv204, 
+    # toilet_src = hv205, shared_toilet = hv225,
+    
+    # ag assets:
+    owns_land, land_size,
+    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+    contains('cat'), -cow_cat, -camel_cat, -chicken_cat, -equine_cat, -goat_cat, -duck_cat,-sheep_cat,
+    
+    # durable assets:
+    radio, tv, refrigerator, 
+    bicycle, motorcycle, car,
+    canoe, cyclomotor,
+    telephone, mobile, vcr, computer,
+    ac, antenna,
+    oven, contains('cooking_fuel'), -cooking_fuel,
+    watch, 
+    animal_cart, plow,motor_pump,
+    # num_bednets, owns_bednet
+    # 
+    # banking 
+    bank_acct) %>% 
+  calc_idx(save_params = T)
+
 calc_pct(hh) %>% filter(pct < 0.01)
