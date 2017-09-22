@@ -17,7 +17,7 @@ library(tidyverse)
 library(svywrangler)
 library(forcats)
 
-data_dir = '~/Documents/Niger/data/NER_2012_DHS/'
+data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
 
 
 # read in individual level DHS data ---------------------------------------
@@ -74,6 +74,7 @@ hh = hh_raw %>%
     # WASH:
     drinking_src = hv201, time2water = hv204, 
     toilet_src = hv205, shared_toilet = hv225,
+    water_shortage = sh106b,
     
     # ag assets:
     owns_land = hv244, land_size = hv245,
@@ -118,6 +119,7 @@ hh = hh %>%
                   shared_toilet, radio, tv, refrigerator, bicycle, 
                   car, motorcycle, telephone, owns_land,
                   mobile, watch, animal_cart, where_cook,
+                  water_shortage,
                   # note: these are Niger-specific variables and are not listed as being NA in survey.
                   # However, seems only logical choice, since they are binaries.
                   vcr, canoe, cyclomotor, computer, ac, antenna, motor_pump, oven, plow

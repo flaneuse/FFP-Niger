@@ -9,16 +9,46 @@ library(tidyverse)
 library(svywrangler)
 library(modelr)
 
-kids_raw = read_stata('~/Documents/USAID/Niger/NER_2012_DHS/nikr61dt/NIKR61FL.DTA')
+data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
 
+# Improved water codes
+impr_water_codes = c(11,12,13,21,31,41,51)
+
+# 11                                  Piped into dwelling Improved
+# 12                                   Piped to yard/plot Improved
+# 13                                 Public tap/standpipe Improved
+# 21                                Tube well or borehole Improved
+# 31                                       Protected well Improved
+# 32                                     Unprotected well UNIMPROVED
+# 41                                     Protected spring Improved
+# 42                                   Unprotected spring UNIMPROVED
+# 43 River/dam/lake/ponds/stream/canal/irrigation channel UNIMPROVED
+# 51                                            Rainwater Improved
+# 62                                 Cart with small tank UNIMPROVED
+# 63                                         Water vendor UNIMPROVED
+impr_toilet_codes = c(11,12,21,22)
+
+# 11           Flush to piped sewer system Improved
+# 12                  Flush to septic tank  Improved
+# 21 Ventilated Improved Pit latrine (VIP)  Improved
+# 22                 Pit latrine with slab  Improved
+# 23     Pit latrine without slab/open pit  UNIMPROVED
+# 31                No facility/bush/field  UNIMPROVED
+# 42                         Bucket toilet  UNIMPROVED
+# 99                               Unknown  NA
+
+# Import children’s data -------------------------------------------------
+kids_raw = read_stata(paste0(data_dir,'nikr61dt/NIKR61FL.DTA'))
+
+
+
+# Pull relevant vars ------------------------------------------------------
 
 # In general, ignoring potentially relevant vars if exclude ~ 2000+ obs. --> all under 2 obs.
 
 kids = kids_raw %>% 
-
-  mutate(rural = ifelse(v025 == 2, 1, 0),
-         stunting = hw70 / 1e2
-         ) %>% 
+  
+  mutate(rural = ifelse(v025 == 2, 1, 0)) %>% 
   
   # grab 119-129, 153, 161: hh assets
   select(cluster_num = v001, hh_num = v002, 
@@ -32,18 +62,21 @@ kids = kids_raw %>%
          husband_occup = v704, v705,
          husband_age = v730,
          mom_working = v714, mom_occup = v716, v717, v731, 
+         
+         # WASH
          drinking_src = v113,
          time2drinking = v115,
          toilet_src = v116,
          shared_toilet = v160,
+         # hh characteristics
          elec = v119,
-         dejure = v135,
          hhsize = v136,
          kids_under5 = v137,
          femhead = v151,
          agehead = v152,
          freq_radio = v158,
          freq_tv = v159,
+         # wealth
          dhs_WI = v191,
          dhs_WI_rural = v191r,
          mos_net = ml101, mps_net = v459, kid_slept_mosquito = v460, mom_slept_mosquito = v461,
@@ -90,10 +123,15 @@ kids = kids_raw %>%
          
          # vac
          vac_tb = h2, vac_dpt1 = h3, vac_polio1 = h4, vac_dpt2 = h5, vac_polio2 = h6, vac_dpt3 = h7, 
-         polio3 = h8, measles = h9, vac_polio0 = h0, vac_yellowfever = s506y,
+         vac_polio3 = h8, vac_measles = h9, vac_polio0 = h0, vac_yellowfever = s506y,
          diarrhea = h11, fever = 22, cough = h31, vitA = h33, vitA2 = h34, Fe = h42, int_parasites = h43,
          
-         age_months = hw1, weight = hw2, height = hw3, stunting = hw70, underweight = hw71, wasting = hw72, bmi = hw73, kid_hemoglobin = hw56, kid_anemia = hw57,
+         age_months = hw1, weight = hw2, height = hw3, 
+         
+         # malnutrition
+         stunting = hw70, underweight = hw71, wasting = hw72, bmi = hw73, 
+         
+         kid_hemoglobin = hw56, kid_anemia = hw57,
          mosqnet_type = ml0,
          sz_unicef,
          
@@ -106,7 +144,72 @@ kids = kids_raw %>%
          washknow_foodprep = s563a, washknow_food = s563b, washknow_feed = s563c, washknow_aftereat = s563d, washknow_toilets = s563e, washknow_diaper = s563f,
          handwashing = s564,
          mom_noncommunicable = s1210aa
-  )
+  ) 
+
+
+# cleanup data ------------------------------------------------------------
+# Clean up procedure is as follows:
+# 1) id and convert any NA codes to NAs
+# 2) convert decimal values to proper decimals (since DHS multiplies all decimals by 10^x)
+# 3) convert categorical values to factors
+# 4) classify those factors into groups where appropriate (lump and collapse, or improved/not) and set base for regression
+# 5) If neccessary, convert continuous variables to categories, e.g. TLU
+# 6) center and scale the data for regression
+
+
+# ID values that are missing. ---------------------------------------------
+
+id_weirdos(kids)
+
+# common missing values, often untagged
+kids %>% count_value()
+
+
+kids = kids %>% 
+  # Converting "other" and "not dejure resident" to NA
+  replace_missing(missing_codes = c(96, 97, 99), drinking_src, toilet_src) %>% 
+  replace_missing(missing_codes = c(997, 998), time2drinking) %>% 
+  replace_missing(missing_codes = c(98), agehead) %>% 
+  replace_missing(missing_codes = 9996:9999, mom_stunting, mom_bmi, mom_rohrer,
+                  stunting, wasting, underweight, bmi) %>% 
+  replace_missing(missing_codes = c(8, 9), num_otherwives, birth_size, diarrhea, cough, fever,
+                  vac_tb, vac_dpt1, vac_dpt2, vac_dpt3, vac_polio1, vac_polio2, vac_polio3, vac_polio0,
+                  vac_measles, vac_yellowfever)
+
+kids %>% count_value(8)
+kids %>% count_value(9)
+kids %>% count_value(98)
+kids %>% count_value(99)
+kids %>% count_value(998)
+kids %>% count_value(999)
+kids %>% count_value(9998)
+kids %>% count_value(9999)
+
+# decimalize --------------------------------------------------------------
+kids = kids %>% 
+  mutate(dhs_WI = dhs_WI/1e5,
+         dhs_WI_rural = dhs_WI_rural/1e5,
+         stunting = stunting/1e2,
+         wasting = wasting/1e2,
+         underweight = underweight/1e2
+         )
+
+
+# factorize and lump factors ----------------------------------------------
+# Also bin numeric values
+kids = kids %>% 
+  factorize('_lab', toilet_src, drinking_src) %>% 
+  # lump factors
+  mutate(impr_toilet = ifelse(is.na(toilet_src), NA,
+                                    ifelse(toilet_src %in% impr_toilet_codes, 1, 0)),
+         impr_water = ifelse(is.na(drinking_src), NA, 
+                             ifelse(drinking_src %in% impr_water_codes, 1, 0)),
+         # bin water access; code 996 == "on premise".  Assuming that's within 30 min.
+         water_wi30min = as.numeric(time2drinking <= 30 | time2drinking == 996),
+         # fix shared toilet; assuming if you poop in the bushes that it's shared.
+         shared_toilet = ifelse(, shared_toilet)
+         )
+
 
 
 # center and scale data ---------------------------------------------------
@@ -115,9 +218,9 @@ kids = kids_raw %>%
 # filter out relevant kids ------------------------------------------------
 # children universe: (1) all rural Niger; (2) all rural Zinder
 
-all_kids = kids  %>% 
+all_stunting = kids  %>% 
   # ignore children lacking stunting data and from urban areas
-  filter(!is.na(stunting), stunting < 99,
+  filter(!is.na(stunting),
          rural == 1)
 
 zinder = kids %>% filter(region == 'Zinder')
@@ -125,11 +228,20 @@ zinder = kids %>% filter(region == 'Zinder')
 # create basic models -----------------------------------------------------
 
 models = formulas(~stunting,
+                  WASH = 
+                    ~ # WASH
+                    impr_toilet + shared_toilet + 
+                    impr_water + wash_knowl + diarrhea,
+                    # water_shortage,
                   basic = 
                     # basic demographics
                     ~ sex + age_months*age_months +
                     # hh demographics
-                     region + hh_size,
+                    region + hhsize +
+                    
+                    # Wealth
+                    dhs_WI_rural
+                  ,
                   new = add_predictors(basic, ~vac_tb))
 
 # Stunting z-score
@@ -139,4 +251,8 @@ zinder_z = zinder %>% fit_with(lm, models)
 # Binary stunted
 all_stunted = all_kids %>% fit_with(glm, models_stunted, family = binomial)
 zinder_stunted = zinder %>% fit_with(glm, models_stunted, family = binomial)
+
+
+# summary -----------------------------------------------------------------
+summary(all_z$basic)
 
