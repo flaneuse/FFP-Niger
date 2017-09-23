@@ -16,6 +16,8 @@ library(haven)
 library(tidyverse)
 library(svywrangler)
 library(forcats)
+library(llamar)
+library(ggplot2)
 
 data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
 
@@ -240,149 +242,148 @@ count_NA(hh_pca)
 
 
 # Run PCAs -----------------------------------------------------------------
-# 1) Recreate DHS PCA to double check
-# 2) Create a combined PCA sans WASH, with animals broken out
-# 3) removing anything < 1%
-# 3) Create a combined PCA sans WASH, with animals as TLUs
-# 4) Create 3 separate PCAs: infrastructure, ag assets, durable goods
-
-pca1_vars = hh_pca %>% 
-  select(  # infrastructure + WASH:
-    owns_house, ppl_room, elec, 
-    contains('_dhs'), -WI_DHS_rural, -WI_DHS, -toilet_src_dhs,
-    -drinking_src_dhs, -cooking_fuel_dhs, -floor_type_dhs,
-    -roof_type_dhs, -wall_type_dhs, -shared_toilet_dhs,
-    
-    # ag assets:
-    owns_land, land_size,
-    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
-    contains('cat'), -cow_cat, -camel_cat, -chicken_cat, -equine_cat, -goat_cat, -duck_cat,-sheep_cat,
-    
-    # durable assets:
-    radio, tv, refrigerator, 
-    bicycle, motorcycle, car,
-    canoe, cyclomotor,
-    telephone, mobile, vcr, computer,
-    ac, antenna,
-    oven, 
-    watch, 
-    animal_cart, plow,motor_pump,
-    # banking 
-    bank_acct)
-  
-  pca1 = pca1_vars %>% 
-  calc_idx(save_params = T, var_name = 'WI_DHS_calc', center = T, scale = T)
-
-  
-  bind_cols(hh, pca1$data) %>% 
-    ggplot(., aes(x = WI_DHS_rural, y = WI_DHS_calc)) +
-    geom_point() +
-    theme_xygrid() +
-    coord_equal()
-  
-  x = data.frame(pca_new$scores[,1])
-  ggplot(x, aes(x = `pca_new.scores...1.`)) + 
-    geom_histogram(fill = 'dodgerblue', binwidth = 0.25) + 
-    geom_histogram(aes(x = WI_DHS_rural), fill = 'coral', data = hh, alpha = 0.5, binwidth = 0.25) + 
-    theme_xgrid()
-  
-pca2 = hh_pca %>% 
-  select(  # infrastructure:
-    owns_house, ppl_room, elec, 
-    # where_cook = hv241,
-    contains('floor_type'), -floor_type, 
-    contains('wall_type'), -wall_type, 
-    contains('roof_type'), -roof_type, 
-    
-    
-    # # WASH:
-    # drinking_src = hv201, time2water = hv204, 
-    # toilet_src = hv205, shared_toilet = hv225,
-    
-    # ag assets:
-    owns_land, land_size,
-    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
-    contains('cat'), -cow_cat, -camel_cat, -chicken_cat, -equine_cat, -goat_cat, -duck_cat,-sheep_cat,
-    
-    # durable assets:
-    radio, tv, refrigerator, 
-    bicycle, motorcycle, car,
-    canoe, cyclomotor,
-    telephone, mobile, vcr, computer,
-    ac, antenna,
-    oven, contains('cooking_fuel'), -cooking_fuel,
-    watch, 
-    animal_cart, plow,motor_pump,
-    # num_bednets, owns_bednet
-    # 
-    # banking 
-    bank_acct) %>% 
-  calc_idx(save_params = T)
-
-
-
-pca3 = hh_pca %>% 
-  select(  # infrastructure:
-    owns_house, ppl_room, elec, 
-    # where_cook = hv241,
-    contains('floor_type'), -floor_type, 
-    contains('wall_type'), -wall_type, 
-    contains('roof_type'), -roof_type, 
-    
-    
-    # # WASH:
-    # drinking_src = hv201, time2water = hv204, 
-    # toilet_src = hv205, shared_toilet = hv225,
-    
-    # ag assets:
-    owns_land, land_size,
-    # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
-    TLU,
-    
-    # durable assets:
-    radio, tv, refrigerator, 
-    bicycle, motorcycle, car,
-    canoe, cyclomotor,
-    telephone, mobile, vcr, computer,
-    ac, antenna,
-    oven, contains('cooking_fuel'), -cooking_fuel,
-    watch, 
-    animal_cart, plow,motor_pump,
-    # num_bednets, owns_bednet
-    # 
-    # banking 
-    bank_acct) %>% 
-  calc_idx(save_params = T)
-
-
-# Export for TE to run in Stata -------------------------------------------
-
-
-pca4 = hh %>% 
-  select( 
-    hh_num, cluster, 
+# # 1) Recreate DHS PCA to double check
+# # 2) Create a combined PCA sans WASH, with animals broken out
+# # 3) removing anything < 1%
+# # 3) Create a combined PCA sans WASH, with animals as TLUs
+# # 4) Create 3 separate PCAs: infrastructure, ag assets, durable goods
+# 
+# pca1_vars = hh_pca %>% 
+#   select(  # infrastructure + WASH:
+#     owns_house, ppl_room, elec, 
+#     contains('_dhs'), -WI_DHS_rural, -WI_DHS, -toilet_src_dhs,
+#     -drinking_src_dhs, -cooking_fuel_dhs, -floor_type_dhs,
+#     -roof_type_dhs, -wall_type_dhs, -shared_toilet_dhs,
+#     
+#     # ag assets:
+#     owns_land, land_size,
+#     # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+#     contains('cat'), -cow_cat, -camel_cat, -chicken_cat, -equine_cat, -goat_cat, -duck_cat,-sheep_cat,
+#     
+#     # durable assets:
+#     radio, tv, refrigerator, 
+#     bicycle, motorcycle, car,
+#     canoe, cyclomotor,
+#     telephone, mobile, vcr, computer,
+#     ac, antenna,
+#     oven, 
+#     watch, 
+#     animal_cart, plow,motor_pump,
+#     # banking 
+#     bank_acct)
+#   
+#   pca1 = pca1_vars %>% 
+#   calc_idx(save_params = T, var_name = 'WI_DHS_calc', center = T, scale = T)
+# 
+#   
+#   bind_cols(hh, pca1$data) %>% 
+#     ggplot(., aes(x = WI_DHS_rural, y = WI_DHS_calc)) +
+#     geom_point() +
+#     theme_xygrid() +
+#     coord_equal()
+#   
+#   # ggplot(x, aes(x = `pca_new.scores...1.`)) + 
+#   #   geom_histogram(fill = 'dodgerblue', binwidth = 0.25) + 
+#   #   geom_histogram(aes(x = WI_DHS_rural), fill = 'coral', data = hh, alpha = 0.5, binwidth = 0.25) + 
+#   #   theme_xgrid()
+#   # 
+# pca2 = hh_pca %>% 
+#   select(  # infrastructure:
+#     owns_house, ppl_room, elec, 
+#     # where_cook = hv241,
+#     contains('floor_type'), -floor_type, 
+#     contains('wall_type'), -wall_type, 
+#     contains('roof_type'), -roof_type, 
+#     
+#     
+#     # # WASH:
+#     # drinking_src = hv201, time2water = hv204, 
+#     # toilet_src = hv205, shared_toilet = hv225,
+#     
+#     # ag assets:
+#     owns_land, land_size,
+#     # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+#     contains('cat'), -cow_cat, -camel_cat, -chicken_cat, -equine_cat, -goat_cat, -duck_cat,-sheep_cat,
+#     
+#     # durable assets:
+#     radio, tv, refrigerator, 
+#     bicycle, motorcycle, car,
+#     canoe, cyclomotor,
+#     telephone, mobile, vcr, computer,
+#     ac, antenna,
+#     oven, contains('cooking_fuel'), -cooking_fuel,
+#     watch, 
+#     animal_cart, plow,motor_pump,
+#     # num_bednets, owns_bednet
+#     # 
+#     # banking 
+#     bank_acct) %>% 
+#   calc_idx(save_params = T)
+# 
+# 
+# 
+# pca3 = hh_pca %>% 
+#   select(  # infrastructure:
+#     owns_house, ppl_room, elec, 
+#     # where_cook = hv241,
+#     contains('floor_type'), -floor_type, 
+#     contains('wall_type'), -wall_type, 
+#     contains('roof_type'), -roof_type, 
+#     
+#     
+#     # # WASH:
+#     # drinking_src = hv201, time2water = hv204, 
+#     # toilet_src = hv205, shared_toilet = hv225,
+#     
+#     # ag assets:
+#     owns_land, land_size,
+#     # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
+#     TLU,
+#     
+#     # durable assets:
+#     radio, tv, refrigerator, 
+#     bicycle, motorcycle, car,
+#     canoe, cyclomotor,
+#     telephone, mobile, vcr, computer,
+#     ac, antenna,
+#     oven, contains('cooking_fuel'), -cooking_fuel,
+#     watch, 
+#     animal_cart, plow,motor_pump,
+#     # num_bednets, owns_bednet
+#     # 
+#     # banking 
+#     bank_acct) %>% 
+#   calc_idx(save_params = T)
+# 
+# 
+# # Export for TE to run in Stata -------------------------------------------
+# 
+# 
+pca4 = hh %>%
+  select(
+    hh_num, cluster,
     # infrastructure:
     # owns_house, # ignoring b/c 3,770 NAs
-    ppl_room, elec, 
-    contains('clumped'), -wall_type_clumped, -roof_type_clumped, floor_type_clumped, 
+    ppl_room, elec,
+    contains('clumped'), -wall_type_clumped, -roof_type_clumped, floor_type_clumped,
     -cooking_fuel_clumped, -where_cook_clumped,
-    
-    
+
+
     # ag assets:
     owns_land, land_size,
     # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
     TLU,
-    
+
     # durable assets:
-    radio, tv, 
-    bicycle, motorcycle, 
+    radio, tv,
+    bicycle, motorcycle,
     mobile, vcr,
-    watch, 
+    watch,
     animal_cart, plow,motor_pump,
-    owns_bednet) 
-
-count_NA(pca4)
-
-calc_pct(pca4) %>% filter(pct< 0.01)
-
-write.csv(pca4, '~/Documents/Niger/data/NER_DHS_2012_PCA_LDH.csv')
+    owns_bednet)
+# 
+# count_NA(pca4)
+# 
+# calc_pct(pca4) %>% filter(pct< 0.01)
+# 
+# # write.csv(pca4, '~/Documents/Niger/data/NER_DHS_2012_PCA_LDH.csv')

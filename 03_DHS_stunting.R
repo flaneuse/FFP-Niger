@@ -279,7 +279,8 @@ models = formulas(~stunting,
                   ,
                   combo = add_predictors(basic, wash))
 
-zinder-models = formulas(~stunting,
+
+zinder_models = formulas(~stunting,
                   wash = 
                     ~ # WASH
                     impr_toilet + shared_toilet + 
@@ -292,7 +293,7 @@ zinder-models = formulas(~stunting,
                     birth_order +
                     interview_month +
                     # hh demographics
-                    region_lab + hhsize + kids_under5 +
+                    hhsize + kids_under5 +
                     femhead_lab +
                     
                     # mother
@@ -303,6 +304,7 @@ zinder-models = formulas(~stunting,
                     dhs_WI_rural + TLU
                   ,
                   combo = add_predictors(basic, wash))
+
 # Stunting z-score
 all_z = all_stunting %>% fit_with(lm, models)
 zinder_z = zinder %>% fit_with(lm, zinder_models)
@@ -322,5 +324,5 @@ plot_coef(zinder_z$combo)
 
 
 # export data for Tim. ----------------------------------------------------
-write.csv(all_z, '~/Documents/USAID/Niger/data/NER_DHS_semicleankidsdata_2017-09-22.csv')
+write.csv(all_stunting, '~/Documents/USAID/Niger/data/NER_DHS_semicleankidsdata_2017-09-22.csv')
 
