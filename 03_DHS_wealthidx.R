@@ -357,17 +357,20 @@ pca3 = hh_pca %>%
 
 
 pca4 = hh %>% 
+  filter(!is.na(radio), !is.na(roof_type), !is.na(vcr), !is.na(TLU),
+         !is.na(wall_type), !is.na(ppl_room)) %>% 
   select( 
     hh_num, cluster, 
     # infrastructure:
     # owns_house, # ignoring b/c 3,770 NAs
     ppl_room, elec, 
-    contains('clumped'), -wall_type_clumped, -roof_type_clumped, floor_type_clumped, 
+    contains('clumped'), -wall_type_clumped, -roof_type_clumped, -floor_type_clumped, 
     -cooking_fuel_clumped, -where_cook_clumped,
     
     
     # ag assets:
-    owns_land, land_size,
+    owns_land, 
+    # land_size, 
     # assuming "horses/ donkeys/ mules" is an equal distribution of all 3 animals, when calculating TLUs
     TLU,
     
@@ -378,6 +381,7 @@ pca4 = hh %>%
     watch, 
     animal_cart, plow,motor_pump,
     owns_bednet) 
+  
 
 count_NA(pca4)
 
