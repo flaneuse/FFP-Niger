@@ -95,7 +95,7 @@ impr_toilet_codes = c(11,12,13,15,21,22,31)
 
 
 # Import data, pkgs -------------------------------------------------------
-data_dir = '~/Documents/USAID/Niger/data/'
+data_dir = '~/Documents/Niger/data/'
 
 library(tidyverse)
 library(llamar)
@@ -356,3 +356,44 @@ ggplot(water_src, aes(y = forcats::fct_reorder(water_src, n),
   theme_ygrid() +
   ggtitle("Water sources in baseline data") +
   facet_wrap(~admin1)
+
+
+# look stunting by wealth -------------------------------------------------
+ch_ffp = read_csv('~/Documents/Niger/data/Niger_Child Health_Data.csv')
+library(lubridate)
+
+ch_ffp = ch_ffp %>% mutate(int_date2 = mdy(int_date))
+
+ggplot(ch_ffp %>% filter(!is.na(diarrhea)), aes(x = int_date2, y = diarrhea)) +
+  stat_summary(fun.y = 'mean', geom = 'point', size = 5)
+
+ch_ffp2 = left_join(ch_ffp, wlth,  by = c("HH" = "hhid", "cluster" = "cluster"))
+
+
+ggplot(ch_ffp2, aes(x = total_consumption_2010)) + geom_density()
+# zwhz
+# DDseven
+
+wlth_breaks = ch_ffp2 %>% 
+  group_by(wlth_quint) %>% 
+  summarise(min = min(total_consumption_2010),
+            max = max(total_consumption_2010))
+
+stunted_colour = '#a50026'
+
+ggplot(ch_ffp2, aes(x = total_consumption_2010, y = zhaz)) + 
+  geom_rect(aes(xmin = 0, xmax = 10, ymin = -3, ymax = -2), 
+            data = ch_ffp2 %>% slice(c(1,8797)),
+            fill = stunted_colour, alpha = 0.2) + 
+  
+  geom_vline(aes(xintercept = min), data = wlth_breaks,
+             colour = grey90K, size = 0.25) +
+  geom_smooth(colour = stunted_colour) +
+  scale_x_continuous(labels = scales::dollar) +
+  # scale_y_continuous(limits = c(-3, -1)) +
+  facet_wrap(~REG.x) +
+  theme_xylab()
+
+
+ggplot(ch_ffp2, aes(x = as.factor(wlth_quint), y = zhaz, fill = wlth_quint)) +
+geom_violin()
