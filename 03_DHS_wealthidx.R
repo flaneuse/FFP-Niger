@@ -392,3 +392,13 @@ pca4 = hh %>%
 # 
 # # write.csv(pca4, '~/Documents/Niger/data/NER_DHS_2012_PCA_LDH.csv')
 
+# Time to water bar graph -------------------------------------------------
+hh =hh %>% 
+  mutate(time_cat = cut(time2water, breaks = c(seq(0, 60, by = 15), 899)))
+
+ggplot(hh %>% filter(region == 7, !is.na(time_cat)), aes(x = time_cat, y = (..count..)/sum(..count..))) + 
+  geom_bar() +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.5), name = NULL) +
+  ggtitle('Distance to travel to aquire drinking water', subtitle = 'Percent of rural households in Zinder, Niger (2012 DHS)') +
+  theme_ygrid()
+
