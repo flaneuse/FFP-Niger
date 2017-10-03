@@ -7,9 +7,14 @@
 library(tidyverse)
 library(haven)
 library(svywrangler)
+library(llamar)
 
 # Import household-level data, 2014
 bf = read_stata('~/Documents/Burkina Faso/rawdata/BF_2014_MIS_10022017_1149_89151/bfhr70dt/BFHR70FL.DTA')
+
+
+# Import household-level data, 2010
+bf = read_stata('~/Documents/Burkina Faso/rawdata/BF_2010_DHS_10022017_1149_89151/bfhr62dt/BFHR62FL.DTA')
 
 # Import household-level data, 2010
 
@@ -18,7 +23,47 @@ bf = read_stata('~/Documents/Burkina Faso/rawdata/BF_2014_MIS_10022017_1149_8915
 bf_kids = read_stata("~/Documents/Burkina Faso/rawdata/BF_2010_DHS_10022017_1149_89151/bfkr62dt/BFKR62FL.DTA")
 
 
+# clean hh data ---------------------------------------------------------
+
 View(pull_labels(bf))
+
+
+bf = bf %>% 
+  mutate(rural = ifelse(hv025 == 2, 1, 0)) %>% 
+  select(
+    cluster = hv001, hh_num = hv002, 
+    psu = hv021, strata = hv022, region = hv024,
+    svy_weight = hv005,
+    rural,
+    # wealth
+    dhs_WI_cat = hv270,
+    dhs_WI = hv271,
+
+    # WASH:
+    drinking_src = hv201, time2water = hv204, 
+    toilet_src = hv205, shared_toilet = hv225
+  ) 
+
+# id_weirdos(bf)
+bf = bf %>% 
+  mutate(time_cat = cut(time2water, breaks = c(seq(0, 60, by = 15), 899)))
+
+bf = bf %>% 
+  # Convert NA values -------------------------------------------------------
+replace_missing(missing_codes = c(9996, 9997, 9998, 9999), stunting, wasting, bmi) %>% 
+  replace_missing(missing_codes = c(8, 9), diarrhea) %>% 
+  # Convert numbers to real decimals -----------------------------------------
+mutate(
+  svy_weight = svy_weight / 1e6,
+  
+  # Classify WASH vars --------------------------------------------------------
+  
+  od = ifelse()
+) %>% 
+  # Factorize values --------------------------------------------------------
+factorize('_lab', region)
+
+
 
 
 # clean kids data ---------------------------------------------------------
@@ -92,3 +137,24 @@ lapply(c('stunted', 'wasted', 'diarrhea'), function(x) calcPtEst(bf_kids %>% fil
 
 
 
+# Plot stunting by WI -----------------------------------------------------
+stunting = calcPtEst(bf_kids %>% filter(rural == 1), var = 'stunted', by_var = 'dhs_WI_cat', use_weights = TRUE, 
+                     psu_var = 'psu', strata_var = 'strata', weight_var = 'svy_weight')
+
+ggplot(stunting, aes(x = avg, y = dhs_WI_cat, fill = avg)) + 
+  geom_segment(aes(x = lb, xend = ub, y = dhs_WI_cat, yend = dhs_WI_cat), colour = grey15K, size = 2) +
+  geom_point(size = 4, shape = 21, colour = grey90K) +
+  scale_y_reverse(labels = c('lowest', 'low', 'middle', 'high', 'highest')) +
+  scale_x_continuous(labels = scales::percent, limits = c(0, 0.5)) + 
+  scale_fill_gradientn(colours = llamar::inferno) +
+  ggtitle('Stunting by asset quintile', subtitle = 'Rural Centre-Nord Burkina Faso, 2010') +
+  theme_xgrid()
+
+
+# Time to water bar graph -------------------------------------------------
+
+ggplot(bf %>% filter(region == 5, !is.na(time_cat)), aes(x = time_cat, y = (..count..)/sum(..count..))) + 
+  geom_bar() +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.5), name = NULL) +
+  ggtitle('Distance to travel to aquire drinking water', subtitle = 'Percent of rural households in Centre-Nord, Burkina Faso (2014 DHS)') +
+  theme_ygrid()
