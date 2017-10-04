@@ -12,6 +12,7 @@ library(llamar)
 
 data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
 
+# Based on http://www.who.int/water_sanitation_health/monitoring/oms_brochure_core_questionsfinal24608.pdf
 # Improved water codes
 impr_water_codes = c(11,12,13,21,31,41,51)
 
