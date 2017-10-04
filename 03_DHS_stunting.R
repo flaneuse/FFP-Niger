@@ -82,6 +82,10 @@ kids = kids_raw %>%
          # wealth
          dhs_WI = v191,
          dhs_WI_rural = v191r,
+         
+         dhs_WI_cat = v190,
+         dhs_WI_ruralcat = v190r,
+         
          mos_net = ml101, mps_net = v459, kid_slept_mosquito = v460, mom_slept_mosquito = v461,
          # children ever born, ratios v201-207, v218, v219, v220
          births_5y = v208,
@@ -237,6 +241,12 @@ kids = kids %>%
 
 
 
+# Stunting / wealth index -------------------------------------------------
+
+ggplot(kids, aes(x = as.factor(dhs_WI_ruralcat), y = stunting)) +
+  geom_boxplot()
+
+
 # center and scale data ---------------------------------------------------
 # filter out relevant kids ------------------------------------------------
 # children universe: (1) all rural Niger; (2) all rural Zinder
@@ -245,13 +255,13 @@ all_stunting = kids  %>%
   # ignore children lacking stunting data and from urban areas
   filter(!is.na(stunting),
          rural == 1) %>% 
-  center_scale()
+  center_scale(center = F)
 
 zinder = kids %>% 
   filter(region_lab == 'Zinder', 
          !is.na(stunting),
          rural == 1) %>% 
-  center_scale()
+  center_scale(center = F)
 
 # create basic models -----------------------------------------------------
 # Note: DHS wealth index includes WASH vars.
