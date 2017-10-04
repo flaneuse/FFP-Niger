@@ -95,7 +95,8 @@ impr_toilet_codes = c(11,12,13,15,21,22,31)
 
 
 # Import data, pkgs -------------------------------------------------------
-data_dir = '~/Documents/Niger/data/'
+data_dir = '~/Documents/USAID/Niger/data/'
+# data_dir = '~/Documents/Niger/data/'
 
 library(tidyverse)
 library(llamar)
@@ -359,7 +360,7 @@ ggplot(water_src, aes(y = forcats::fct_reorder(water_src, n),
 
 
 # look stunting by wealth -------------------------------------------------
-ch_ffp = read_csv('~/Documents/Niger/data/Niger_Child Health_Data.csv')
+ch_ffp = read_csv(paste0(data_dir, '/Niger_Child Health_Data.csv'))
 library(lubridate)
 
 ch_ffp = ch_ffp %>% mutate(int_date2 = mdy(int_date))
