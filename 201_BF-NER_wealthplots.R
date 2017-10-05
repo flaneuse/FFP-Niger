@@ -118,6 +118,7 @@ p2 = plot_scatter(bfls %>% filter(region == 6),
              alpha = 0.1,
              ' ', 'Rural Centre-Nord, Burkina Faso (2014)')
 
+footer = add_footer()
 grid.arrange(p1, p2, ncol = 2)
 # hist: pcexp -------------------------------------------------------------
 

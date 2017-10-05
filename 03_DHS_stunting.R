@@ -243,8 +243,11 @@ kids = kids %>%
 
 # Stunting / wealth index -------------------------------------------------
 
-ggplot(kids, aes(x = as.factor(dhs_WI_ruralcat), y = stunting)) +
+ggplot(kids %>% filter(region_lab == 'Zinder'), aes(x = as.factor(dhs_WI_ruralcat), y = stunting)) +
   geom_boxplot()
+
+ggplot(kids %>% filter(region_lab == 'Zinder'), aes(x = as.factor(dhs_WI_cat), y = impr_water)) +
+  stat_summary(fun.y = 'mean', geom = 'point')
 
 
 # center and scale data ---------------------------------------------------
