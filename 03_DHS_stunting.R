@@ -54,6 +54,7 @@ kids = kids_raw %>%
   
   # grab 119-129, 153, 161: hh assets
   select(cluster = v001, hh_num = v002, 
+         svywt = v005,
          interview_month = v006,
          age_mom = v447a, # check not v012 age_mom_cat = v013,
          psu = v021, strata = v022, region = v024,
@@ -206,14 +207,16 @@ kids %>% count_value(9999)
 
 # decimalize --------------------------------------------------------------
 kids = kids %>% 
-  mutate(dhs_WI = dhs_WI/1e5,
+  mutate(svywt = svywt / 1e6,
+         dhs_WI = dhs_WI/1e5,
          dhs_WI_rural = dhs_WI_rural/1e5,
          stunting = stunting/1e2,
          wasting = wasting/1e2,
          underweight = underweight/1e2,
          mom_rohrer = mom_rohrer/1e2,
-         mom_bmi = mom_bmi/1e2
-         )
+         mom_bmi = mom_bmi/1e2,
+         stunted = as.numeric(stunting < -2)
+  )
 
 
 # factorize and lump factors ----------------------------------------------
@@ -223,7 +226,7 @@ kids = kids %>%
   
   # lump factors
   mutate(impr_toilet = ifelse(is.na(toilet_src), NA,
-                                    ifelse(toilet_src %in% impr_toilet_codes, 1, 0)),
+                              ifelse(toilet_src %in% impr_toilet_codes, 1, 0)),
          impr_water = ifelse(is.na(drinking_src), NA, 
                              ifelse(drinking_src %in% impr_water_codes, 1, 0)),
          # bin water access; code 996 == "on premise".  Assuming that's within 30 min.
@@ -237,7 +240,7 @@ kids = kids %>%
          age_months_sq = age_months^2,
          # convert to factor
          interview_month = factor(interview_month, levels = c(5,2:4,6, 7))
-         )
+  )
 
 
 
@@ -295,29 +298,29 @@ models = formulas(~stunting,
 
 
 zinder_models = formulas(~stunting,
-                  wash = 
-                    ~ # WASH
-                    impr_toilet + shared_toilet + 
-                    impr_water + wash_knowl + diarrhea +
-                    water_shortage # within last 2 weeks
-                  ,
-                  basic = 
-                    # basic demographics
-                    ~ sex_lab + age_months_sq +
-                    birth_order +
-                    interview_month +
-                    # hh demographics
-                    hhsize + kids_under5 +
-                    femhead_lab +
-                    
-                    # mother
-                    mom_rohrer + # corpulence idx, similar to BMI but maybe better
-                    num_otherwives +
-                    
-                    # Wealth 
-                    dhs_WI_rural + TLU
-                  ,
-                  combo = add_predictors(basic, wash))
+                         wash = 
+                           ~ # WASH
+                           impr_toilet + shared_toilet + 
+                           impr_water + wash_knowl + diarrhea +
+                           water_shortage # within last 2 weeks
+                         ,
+                         basic = 
+                           # basic demographics
+                           ~ sex_lab + age_months_sq +
+                           birth_order +
+                           interview_month +
+                           # hh demographics
+                           hhsize + kids_under5 +
+                           femhead_lab +
+                           
+                           # mother
+                           mom_rohrer + # corpulence idx, similar to BMI but maybe better
+                           num_otherwives +
+                           
+                           # Wealth 
+                           dhs_WI_rural + TLU
+                         ,
+                         combo = add_predictors(basic, wash))
 
 # Stunting z-score
 all_z = all_stunting %>% fit_with(lm, models)
@@ -336,6 +339,16 @@ plot_coef(all_z$combo)
 plot_coef(zinder_z$combo)
 
 
+# quick plot: stunting by wealth ------------------------------------------
+x = kids %>% calcPtEst(var = 'stunted', by_var = 'dhs_WI_ruralcat',
+                       use_weights = TRUE, weight = 'svywt',
+                       strata = 'strata', psu = 'psu')
+
+ggplot(x, aes(x = dhs_WI_ruralcat, y = stunted)) +
+  scale_y_continuous(labels = scales::percent) +
+  geom_bar(stat = 'identity') +
+  ggtitle("Rural Niger stunting by asset quintile", subtitle = '2012 DHS') +
+  theme_ygrid()
 
 # export data for Tim. ----------------------------------------------------
 write.csv(all_stunting, '~/Documents/USAID/Niger/data/NER_DHS_semicleankidsdata_2017-09-22.csv')
