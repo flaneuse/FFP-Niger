@@ -118,8 +118,41 @@ p2 = plot_scatter(bfls %>% filter(region == 6),
              alpha = 0.1,
              ' ', 'Rural Centre-Nord, Burkina Faso (2014)')
 
-footer = add_footer()
-grid.arrange(p1, p2, ncol = 2)
+footer = add_footer('Burkina Enquête Multisectorielle Continue 2014', gc_width = 1.5, source_size = 4)
+
+layouts = rbind(c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(1,2),
+                c(3,3))
+
+l2 = rbind(c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(1),
+                c(2))
+
+library(extrafont)
+loadfonts()
+
+p = arrangeGrob(p1, p2, footer, layout_matrix = layouts)
+
+ggsave(plot = p, 
+       filename = '~/Documents/GitHub/FFP-Niger/outputs/BF_stunting-wealth.pdf', 
+       width = 12, height = 9)
+
 # hist: pcexp -------------------------------------------------------------
 
 
@@ -208,8 +241,11 @@ grid.arrange(p, s, e, b, layout_matrix = lay)
 
 
 # NER: water access -------------------------------------------------------
+source('02_FFP_baseline_water.R')
 
-ggplot(wash %>% filter(REG == 2), aes(x = log(total_consumption_2010), y = impr_watersrc)) +
+# improved source
+ggplot(wash %>% filter(REG == 2), 
+       aes(x = log(total_consumption_2010), y = impr_watersrc)) +
   geom_smooth() + 
   scale_x_continuous(breaks = log(dollar_breaks), 
                      labels = scales::dollar(dollar_breaks),
@@ -219,7 +255,31 @@ ggplot(wash %>% filter(REG == 2), aes(x = log(total_consumption_2010), y = impr_
   theme_xygrid()
 
 
-# NER: water access -------------------------------------------------------
+# Improved source + within 30 min
+w1 =ggplot(wash %>% filter(REG == 2), 
+       aes(x = log(total_consumption_2010), y = impr_water_lh)) +
+  geom_smooth() + 
+  scale_x_continuous(breaks = log(dollar_breaks), 
+                     labels = scales::dollar(dollar_breaks),
+                     name = 'Daily per capita expenditure (USD 2010)') +
+  
+  scale_y_continuous(labels = scales::percent, name = NULL) +
+  
+  ggtitle('Households with access to improved water sources within 30 minutes increases with consumption',
+          subtitle = 'Rural Zinder, Niger (2012)') + 
+  theme_xygrid()
+
+f2 = add_footer('Baseline Study for the Title II Development Food Assistance Programs in Niger 2012', gc_width = 1.5, source_size = 4)
+
+
+ner_water = arrangeGrob(w1, f2, layout_matrix = l2)
+
+ggsave(plot = ner_water, 
+       filename = '~/Documents/GitHub/FFP-Niger/outputs/NER_water-wealth.pdf', 
+       width = 12, height = 9)
+
+# NER: stunting (FFP baseline data) -------------------------------------------------------
+
 ch_ffp2 = ch_ffp2 %>% 
   mutate(lnpcexp_usd = log(total_consumption_2010),
          poor = ifelse(total_consumption_2010 < 1.4, 1, 0),
@@ -233,12 +293,16 @@ ch_ffp2 = ch_ffp2 %>%
                              stunted == 0 & poor == 0 ~ 'okay',
                              TRUE ~ NA_character_))
 
-  plot_scatter(ch_ffp2 %>% filter(region == 2), alpha = 0.1,
-             ' ', 'Rural Zinder, Niger (2010)')
+  p4 = plot_scatter(ch_ffp2 %>% filter(region == 2), alpha = 0.1,
+             ' ', 'Rural Zinder, Niger (2012)')
   
-  plot_scatter(ch_ffp2, alpha = 0.1,
-               ' ', 'Rural Zinder and Maradi, Niger (2010)')
+  p3 = plot_scatter(ch_ffp2, alpha = 0.1,
+               ' ', 'Rural Zinder and Maradi, Niger (2012)')
   
-  ggplot(ch_ffp2, aes(x = zhaz, y = log(total_consumption_2010))) +
-           geom_point() +
-           coord_flip()
+  
+  ner = arrangeGrob(p3, p4, f2, layout_matrix = layouts)
+  
+  ggsave(plot = ner, 
+         filename = '~/Documents/GitHub/FFP-Niger/outputs/NER_stunting-wealth.pdf', 
+         width = 12, height = 9)
+  
