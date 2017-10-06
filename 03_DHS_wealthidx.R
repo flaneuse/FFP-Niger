@@ -3,6 +3,8 @@
 # It also includes WASH components, including improved sanitation and water source.
 # To be able to probe the influence of wealth on WASH access, need to recreate a new, standalone wealth index.
 
+# Secondary purpose: calculate WASH indicators at rural / Zinder level.
+
 # Laura Hughes, lhughes@usaid.gov, 20 September 2017
 
 # Goal: get water and sanitation access rates for Zinder province of Niger, broken down by wealth quintiles.
@@ -19,7 +21,37 @@ library(forcats)
 library(llamar)
 library(ggplot2)
 
-data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
+# data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
+data_dir = '~/Documents/Niger/data/NER_2012_DHS/'
+
+
+
+# Based on http://www.who.int/water_sanitation_health/monitoring/oms_brochure_core_questionsfinal24608.pdf
+# Improved water codes
+impr_water_codes = c(11,12,13,21,31,41,51)
+
+# 11                                  Piped into dwelling Improved
+# 12                                   Piped to yard/plot Improved
+# 13                                 Public tap/standpipe Improved
+# 21                                Tube well or borehole Improved
+# 31                                       Protected well Improved
+# 32                                     Unprotected well UNIMPROVED
+# 41                                     Protected spring Improved
+# 42                                   Unprotected spring UNIMPROVED
+# 43 River/dam/lake/ponds/stream/canal/irrigation channel UNIMPROVED
+# 51                                            Rainwater Improved
+# 62                                 Cart with small tank UNIMPROVED
+# 63                                         Water vendor UNIMPROVED
+impr_toilet_codes = c(11,12,21,22)
+
+# 11           Flush to piped sewer system Improved
+# 12                  Flush to septic tank  Improved
+# 21 Ventilated Improved Pit latrine (VIP)  Improved
+# 22                 Pit latrine with slab  Improved
+# 23     Pit latrine without slab/open pit  UNIMPROVED
+# 31                No facility/bush/field  UNIMPROVED
+# 42                         Bucket toilet  UNIMPROVED
+# 99                               Unknown  NA
 
 
 # read in individual level DHS data ---------------------------------------
@@ -52,13 +84,15 @@ hh_raw = read_dta(paste0(data_dir, 'nihr61dt/NIHR61FL.DTA'))
 
 hh = hh_raw %>% 
   # only rural houses
-  filter(hv025 == 2) %>%
+  # filter(hv025 == 2) %>%
   mutate(
     # calculate number sleeping as number of de jure members, unless de jure = 0.  Then go w/ defacto.
     num_sleep = ifelse(hv012 == 0, hv013, hv012),
     
     # convert to proper decimals
-    hh_wt = hv005 / 1e6
+    hh_wt = hv005 / 1e6,
+    
+    rural = ifelse(hv025 == 2, 1, 0)
   ) %>% 
   select(
     # hh sampling attributes
@@ -66,7 +100,7 @@ hh = hh_raw %>%
     hh_wt, int_month = hv006, head_sex = hv219,
     
     # geography
-    region = hv024, urban = hv025,
+    region = hv024, rural,
     
     # infrastructure:
     hh_size = hv009, num_sleep, num_rooms = hv216, elec = hv206, 
@@ -134,7 +168,9 @@ hh = hh %>%
   replace_missing(missing_codes = c(998, 999), land_size, time2water) %>% 
   # Calculate ratio of people to rooms
   mutate(ppl_room = ifelse(num_rooms > 0, trunc(num_sleep / num_rooms), num_sleep),
-         water_within30 = time2water <= 30)
+         
+         # water is within the premises --> within 30 min.
+         water_wi30 = as.numeric(time2water <= 30 | time2water == 996))
 
 hh %>% count_value(8)
 hh %>% count_value(9)
@@ -173,10 +209,15 @@ hh = hh %>%
 
 # Factorize factors -------------------------------------------------------
 hh = hh %>% 
-  factorize('_lab', toilet_src, drinking_src, wall_type, roof_type, floor_type, cooking_fuel, where_cook)
+  factorize('_lab', toilet_src, drinking_src, wall_type, roof_type, floor_type, cooking_fuel, where_cook, region)
 
 # Lump factors ------------------------------------------------------------
 lump_thresh = 0.05
+
+# fix things that should be 0 ---------------------------------------------
+hh = hh %>% 
+  mutate(land_size = ifelse(owns_land == 0, 0, land_size),
+         shared_toilet = ifelse(toilet_src %in% c(30, 31), 1, shared_toilet))
 
 hh = hh %>% 
   # Clumped together based on frequency, with oversight to make sure the categories roughly make sense
@@ -203,7 +244,21 @@ hh = hh %>%
          # DHS combines shared toilet + toilet_src BUT without "no facility", since all shared.
          shared_toilet_dhs = ifelse(toilet_src_lab == 'No facility/bush/field', NA, 
                                     ifelse(shared_toilet == 1, 
-                                           paste0(toilet_src_dhs, ' shared'), NA))
+                                           paste0(toilet_src_dhs, ' shared'), NA)),
+         
+         # create improved water, toilet variables
+         # classify water and sanitation access
+         impr_toilet_src = ifelse(is.na(toilet_src), NA,
+                                  ifelse(toilet_src %in% impr_toilet_codes, 1, 0)),
+         impr_water_src = ifelse(is.na(drinking_src), NA,
+                                 ifelse(drinking_src %in% impr_water_codes, 1, 0)),
+         
+         impr_toilet = ifelse(impr_toilet_src == 1 & shared_toilet == 0, 1, 0),
+         impr_water = ifelse(impr_water_src == 1 & water_wi30 == 1, 1, 0),
+         
+         # create open defecation variable
+         od = ifelse(is.na(toilet_src_lab), NA, 
+                     ifelse(toilet_src_lab == 'No facility/bush/field', 1, 0))
   )
 
 # Create dummy variables for categoricals ---------------------------------
@@ -218,10 +273,7 @@ hh = hh %>%
           sheep_cat, chicken_cat, duck_cat)
 
 
-# fix things that should be 0 ---------------------------------------------
-hh = hh %>% 
-  mutate(land_size = ifelse(owns_land == 0, 0, land_size),
-         shared_toilet = ifelse(toilet_src %in% c(30, 31), 1, shared_toilet))
+
 
 # Deal with NAs (replace all NAs by 0 for PCA) -----------------------------------------------------------
 count_NA(hh)
@@ -393,7 +445,7 @@ pca4 = hh %>%
 # # write.csv(pca4, '~/Documents/Niger/data/NER_DHS_2012_PCA_LDH.csv')
 
 # Time to water bar graph -------------------------------------------------
-hh =hh %>% 
+hh = hh %>% 
   mutate(time_cat = cut(time2water, breaks = c(seq(0, 60, by = 15), 899)))
 
 ggplot(hh %>% filter(region == 7, !is.na(time_cat)), aes(x = time_cat, y = (..count..)/sum(..count..))) + 
@@ -401,4 +453,21 @@ ggplot(hh %>% filter(region == 7, !is.na(time_cat)), aes(x = time_cat, y = (..co
   scale_y_continuous(labels = scales::percent, limits = c(0, 0.5), name = NULL) +
   ggtitle('Distance to travel to aquire drinking water', subtitle = 'Percent of rural households in Zinder, Niger (2012 DHS)') +
   theme_ygrid()
+
+
+
+# Calculations ------------------------------------------------------------
+
+# -- HH --
+# National
+lapply(c('od', 'impr_toilet', 'impr_water', 'impr_water_src'), function(x) calcPtEst(hh, var = x, use_weights = TRUE, 
+                                                                                     psu_var = 'psu', strata_var = 'strata', weight_var = 'hh_wt'))
+
+# Urban / Rural
+lapply(c('od', 'impr_toilet', 'impr_water', 'impr_water_src'), function(x) calcPtEst(hh, var = x, by_var = 'rural', use_weights = TRUE, 
+                                                                                     psu_var = 'psu', strata_var = 'strata', weight_var = 'hh_wt'))
+
+# Rural, by regions
+lapply(c('od', 'impr_toilet', 'impr_water', 'impr_water_src'), function(x) calcPtEst(hh %>% filter(rural == 1), var = x, by_var = 'region_lab', use_weights = TRUE, 
+                                              psu_var = 'psu', strata_var = 'strata', weight_var = 'hh_wt'))
 

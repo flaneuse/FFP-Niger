@@ -10,7 +10,8 @@ library(svywrangler)
 library(modelr)
 library(llamar)
 
-data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
+# data_dir = '~/Documents/USAID/Niger/NER_2012_DHS/'
+data_dir = '~/Documents/Niger/data/NER_2012_DHS/'
 
 # Based on http://www.who.int/water_sanitation_health/monitoring/oms_brochure_core_questionsfinal24608.pdf
 # Improved water codes
@@ -215,7 +216,8 @@ kids = kids %>%
          underweight = underweight/1e2,
          mom_rohrer = mom_rohrer/1e2,
          mom_bmi = mom_bmi/1e2,
-         stunted = as.numeric(stunting < -2)
+         stunted = as.numeric(stunting < -2),
+         wasted = as.numeric(wasting < -2)
   )
 
 
@@ -349,6 +351,24 @@ ggplot(x, aes(x = dhs_WI_ruralcat, y = stunted)) +
   geom_bar(stat = 'identity') +
   ggtitle("Rural Niger stunting by asset quintile", subtitle = '2012 DHS') +
   theme_ygrid()
+
+
+# Calculations ------------------------------------------------------------
+
+# -- Kids --
+# National
+lapply(c('stunted', 'wasted'), function(x) calcPtEst(kids, var = x, use_weights = TRUE, 
+                                                     psu_var = 'psu', strata_var = 'strata', weight_var = 'svywt'))
+
+# Urban / Rural
+lapply(c('stunted', 'wasted'), function(x) calcPtEst(kids, var = x, by_var = 'rural', use_weights = TRUE, 
+                                                                                     psu_var = 'psu', strata_var = 'strata', weight_var = 'svywt'))
+
+# Rural, by regions
+lapply(c('stunted', 'wasted'), function(x) calcPtEst(kids %>% filter(rural == 1), var = x, by_var = 'region_lab', use_weights = TRUE, 
+                                                                                     psu_var = 'psu', strata_var = 'strata', weight_var = 'svywt'))
+
+
 
 # export data for Tim. ----------------------------------------------------
 write.csv(all_stunting, '~/Documents/USAID/Niger/data/NER_DHS_semicleankidsdata_2017-09-22.csv')
