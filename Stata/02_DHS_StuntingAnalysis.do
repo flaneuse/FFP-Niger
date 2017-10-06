@@ -110,23 +110,7 @@ use "$pathout/NER_Kids_data_20170925.dta", clear
 	
 	xtile landquant = land_size, n(5)
 	
-* Create groups for covariates as they map into conceptual framework for stunting
-	global motchar "mom_stunting mom_bmi  motherEd femhead2 orsKnowledge"
-	global hhchar "ib(3).wealth_rur ib(1).landquant TLU"
-	global hhchar1 "wealth_rural impr_toilet impr_water bnetITNuse ib(1).landquant TLU"
-	global hhchar2 "impr_toilet impr_water bnetITNuse landless"
-	global hhchar3 "impr_toilet impr_water bnetITNuse landless TLU"
-	global hhag "TLU"
-	global assets "wealthIndex_rur"
-	global demog "hhsize agehead kids_under5"
-	global chldchar "age_months age_months_sq birth_order birth_size"
-	global chealth "intParasites vitaminA diarrhea anemic_bin"
-	global geog "distHealthFacProb ib(5).region ib(1348).intdate"
-	global geog2 "distHealthFacProb ib(1348).intdate if region == 7"
-	global cluster "cluster(DHSCLUST)"
-	
-
-* Generate survey statistics
+	* Generate survey statistics
 	svyset psu [pw = cweight], strata(strata)	
 
 	* Check stunting over standard covariates
@@ -145,28 +129,60 @@ use "$pathout/NER_Kids_data_20170925.dta", clear
 	coefplot (matrix(plot[1,])), ci((plot[5,] plot[6,])) xline(`stuntmean' `lb' `ub')
 	
 	* running a few other statistics
-	local varlist female wealth_rur wealth diarrhea impr_toilet impr_water
+	local varlist female wealth_rur wealth diarrhea impr_toilet impr_water region
 	foreach x of local varlist {
 		svy:mean stunted, over(`x')
 		}
-	*end
-		
+	*end	
+	
+* -----------------------------------------------------------------------------------------------------------
+	keep if elig == 1
+* Create groups for covariates as they map into conceptual framework for stunting
+	global motchar "mom_stunting mom_bmi  motherEd femhead2 orsKnowledge"
+	global hhchar "ib(3).wealth_rur ib(1).landquant"
+	global hhchar1 "wealth_rural impr_toilet impr_water bnetITNuse ib(1).landquant TLU"
+	global hhchar2 "impr_toilet impr_water bnetITNuse landless"
+	global hhchar3 "impr_toilet impr_water bnetITNuse landless TLU"
+	global hhchar4 "impr_toilet i.impr_water##ib(5).region"
+	global hhag "TLU"
+	global assets "wealthIndex_rur"
+	global demog "hhsize agehead kids_under5"
+	global chldchar "age_months age_months_sq birth_order birth_size"
+	global chealth "intParasites vitaminA diarrhea anemic_bin"
+	global geog "distHealthFacProb ib(5).region ib(1348).intdate i.water_shortage"
+	global geog1 "distHealthFacProb ib(1348).intdate"
+	global geog2 "distHealthFacProb i.water_shortage ib(1348).intdate if region == 7"
+	global cluster "cluster(DHSCLUST)"
+	
+	
+	global depvar "stunting"
+	global modtype "reg"
 	
 	est clear
-	eststo stedl_0: reg stunting $motchar $hhchar2 $demog female $chldchar $chealth $geog, $cluster
-	eststo stedl_1: reg stunting $motchar $hhchar3 $demog female $chldchar $chealth $geog, $cluster
-	eststo stedl_2: reg stunting $motchar $hhchar1 $demog female $chldchar $chealth $geog, $cluster
-	eststo sted1_3: reg stunting $motchar $hhchar $demog female $chldchar $chealth $geog, $cluster 
+	qui eststo stedl_0: reg $depvar $motchar $hhchar2 $demog female $chldchar $chealth $geog, $cluster
+	qui eststo stedl_1: reg $depvar $motchar $hhchar3 $demog female $chldchar $chealth $geog, $cluster
+	qui eststo stedl_2: reg $depvar $motchar $hhchar1 $demog female $chldchar $chealth $geog, $cluster
+	qui eststo sted1_3: reg $depvar $motchar $hhchar $demog female $chldchar $chealth $geog, $cluster 
 	esttab sted*, se star(* 0.10 ** 0.05 *** 0.01) label ar2 pr2 beta not /*eform(0 0 1 1 1)*/ compress
+	esttab sted* using "tmp.csv", se star(* 0.10 ** 0.05 *** 0.001) label replace
 	
-		est clear
-	eststo stedl_0: reg stunting $motchar $hhchar2 $demog female $chldchar $chealth $geog2, $cluster
-	eststo stedl_1: reg stunting $motchar $hhchar3 $demog female $chldchar $chealth $geog2, $cluster
-	eststo stedl_2: reg stunting $motchar $hhchar1 $demog female $chldchar $chealth $geog2, $cluster
-	eststo sted1_3: reg stunting $motchar $hhchar $demog female $chldchar $chealth $geog2, $cluster 
+	
+	* Appears to be small, but signficant relationship between z-scores and improved water for Zinder
+
+	est clear
+	qui eststo stedl_0: $modtype $depvar $motchar $hhchar2 female $chldchar $geog2, $cluster
+	qui eststo stedl_1: $modtype $depvar $motchar $hhchar2 $demog female $chldchar $chealth $geog2, $cluster
+	qui eststo stedl_2: $modtype $depvar $motchar $hhchar3 $demog female $chldchar $chealth $geog2, $cluster
+	qui eststo stedl_3: $modtype $depvar $motchar $hhchar1 $demog female $chldchar $chealth $geog2, $cluster
+	
+	* Report standardized coefficients for only significant covariates; Can also use 'reg y x ... , beta' command
+	*  bStdXY is the fully standardized coefficient, (mean 0 and standard deviation of 1)
+	listcoef,constant pv(.05)
+	
+	qui eststo sted1_4: $modtype $depvar $motchar $hhchar $demog female $chldchar $chealth $geog2, $cluster 
 	esttab sted*, se star(* 0.10 ** 0.05 *** 0.01) label ar2 pr2 beta not /*eform(0 0 1 1 1)*/ compress
+	esttab sted* using "tmp2.csv", se star(* 0.10 ** 0.05 *** 0.001) label replace
 	
-		*
 	esttab stedl*, se star(* 0.10 ** 0.05 *** 0.01) label ar2 beta
 	coefplot stedl_0 || stedl_1 || stedl_2 || sted1_3 , drop(_cons ) /*
 	*/ xline(0) /*mlabel format(%9.2f) mlabposition(11) mlabgap(*2)*/ byopts(row(1)) 
