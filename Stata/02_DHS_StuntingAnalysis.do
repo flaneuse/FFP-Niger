@@ -176,6 +176,7 @@ use "$pathout/NER_Kids_data_20170925.dta", clear
   qui eststo stedl_3: $modtype $depvar $motchar $hhchar1 $demog female $chldchar $chealth $geog2, $cluster
 	
 * Report standardized coefficients for only significant covariates; Can also use 'reg y x ... , beta' command
+* https://www3.nd.edu/~rwilliam/stats3/L04.pdf
   *  bStdXY is the fully standardized coefficient, (mean 0 and standard deviation of 1)
   listcoef,constant pv(.05)
 	
