@@ -9,8 +9,8 @@ library(haven)
 library(svywrangler)
 library(llamar)
 
-# data_dir = '~/Documents/Burkina Faso/rawdata/'
-data_dir = '~/Documents/USAID/Burkina Faso/rawdata/'
+data_dir = '~/Documents/Burkina Faso/rawdata/'
+# data_dir = '~/Documents/USAID/Burkina Faso/rawdata/'
 
 # Import household-level data, 2014
 bf = read_stata(paste0(data_dir, 'BF_2014_MIS_10022017_1149_89151/bfhr70dt/BFHR70FL.DTA'))
@@ -214,7 +214,7 @@ lapply(c('stunted', 'wasted', 'diarrhea'), function(x) calcPtEst(bf_kids %>% fil
 
 
 # Plot water by WI -----------------------------------------------------
-water = calcPtEst(bf %>% filter(rural == 1, region_lab == 'centre-nord'), var = 'impr_water', 
+water = calcPtEst(bf %>% filter(rural == 1), var = 'impr_water', 
                      by_var = 'dhs_WI_cat', use_weights = TRUE, 
                      psu_var = 'psu', strata_var = 'strata', weight_var = 'svy_weight')
 
@@ -223,9 +223,10 @@ ggplot(water, aes(x = avg, y = dhs_WI_cat, fill = avg)) +
   geom_point(size = 4, shape = 21, colour = grey90K) +
   scale_y_reverse(labels = c('lowest', 'low', 'middle', 'high', 'highest')) +
   scale_x_continuous(labels = scales::percent, limits = c(0, 1)) + 
-  scale_fill_gradientn(colours = llamar::inferno) +
+  scale_fill_gradientn(colours = llamar::YlGnBu) +
+  coord_flip() +
   ggtitle('Improved water access within 30 minutes by asset quintile', subtitle = 'Rural Burkina Faso, 2014') +
-  theme_xgrid()
+  theme_ygrid()
 
 
 # Plot stunting by WI -----------------------------------------------------
